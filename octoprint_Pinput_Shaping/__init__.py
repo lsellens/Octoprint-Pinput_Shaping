@@ -50,6 +50,9 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         self.shapers = None
         self.getM593 = False
 
+        self._adxl_capture_lock = threading.Lock()
+        self._adxl_capture_running = False
+
         self._plugin_logger = logging.getLogger(
             "octoprint.plugins.Pinput_Shaping")
 
@@ -263,8 +266,8 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
     # Run the test head movements
     def _run_axis_test(self, axis):
         self._plugin_logger.info(f">>>>>> Running Sweeping {axis} test")
-        #create variable with the value of datetime in iso format 
-        dt= time.strftime("%Y%m%dT%H%M%S")        
+        #create variable with the value of datetime in iso format
+        dt= time.strftime("%Y%m%dT%H%M%S")     
         self.csv_filename = os.path.join(self.metadata_dir, f"Raw_accel_values_AXIS_{axis}_{dt}.csv")
 
 
@@ -298,7 +301,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
     # Run the resonance test
     def _run_resonance_test(self, axis, x, y, z):
         self._plugin_logger.info(f"Running resonance test for {axis} axis at position ({x}, {y}, {z})")
-         #create variable with the value of datetime in iso format 
+         #create variable with the value of datetime in iso format
         dt= time.strftime("%Y%m%dT%H%M%S")        
         self.csv_filename = os.path.join(self.metadata_dir, f"Raw_accel_values_AXIS_{axis}_{dt}.csv")
 
@@ -341,13 +344,13 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         for pos in positions:
             commands.append("G0 {}{} F{}".format(axis, pos, 60 *self.ACCELERATION))
 
-        commands.append(f"M117 Finish Test Sweep on {axis}-Axis")    
+        commands.append(f"M117 Finish Test Sweep on {axis}-Axis")
 
         return commands
 
 
 
-    # Precompute the resonance test commands    
+    # Precompute the resonance test commands
     def precompute_sweep(self, axis, x, y, z):
         num_cycles = 800
         steps_per_cycle = 4
@@ -564,66 +567,90 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         self._plugin_logger.info("Restored shaper values to printer.")
 
 
-        return    
+        return
 
 
 
-    def _start_adxl_capture(self, freq=3200):
-        wrapper = None
-        
-        if  (self._settings.get(['sensorType']) == 'lis2dw'):
-            self._plugin_logger.info("Starting LIS2DW capture...")
-            wrapper = "lis2dwusb"
-            if freq == 5:
-                self._plugin_logger.warning("LIS2DW sensor does not support 5Hz frequency. Test will run at minimum 200Hz.")
-                freq = 200
-            else:
-                self._plugin_logger.info(f"LIS2DW sensor does not support frequency {freq}Hz. Test will run at max 1600Hz.")
-                freq = 1600
-        else:
-            self._plugin_logger.info("Starting ADXL345 capture...")
-            wrapper = "adxl345spi"
+    def _start_adxl_capture(self, axis):
+        with self._adxl_capture_lock:
+            if self._adxl_capture_running:
+                self._logger.info("ADXL capture already running, skipping start.")
+                return
+            self._adxl_capture_running = True
+            self._adxl_capture_logfile = None  # Ensure it's defined
+            try:
+                logfile_path = self._get_logfile_path(axis)
+                logfile = open(logfile_path, "w")
+                self._adxl_capture_logfile = logfile  # Save for later closure
+
+                if  (self._settings.get(['sensorType']) == 'lis2dw'):
+                    self._plugin_logger.info("Starting LIS2DW capture...")
+                    wrapper = "lis2dwusb"
+                    if freq == 5:
+                        self._plugin_logger.warning("LIS2DW sensor does not support 5Hz frequency. Test will run at minimum 200Hz.")
+                        freq = 200
+                    else:
+                        self._plugin_logger.info(f"LIS2DW sensor does not support frequency {freq}Hz. Test will run at max 1600Hz.")
+                        freq = 1600
+                else:
+                    self._plugin_logger.info("Starting ADXL345 capture...")
+                    wrapper = "adxl345spi"
 
 
-        cmd = f"sudo {wrapper} -f {freq} -s {self.csv_filename}"
-        logfile_path = os.path.join(os.path.dirname(self.csv_filename), "adxl_output.log")
+                cmd = f"sudo {wrapper} -f {freq} -s {self.csv_filename}"
+                logfile_path = os.path.join(os.path.dirname(self.csv_filename), "adxl_output.log")
 
-        try:
-            self._adchild = pexpect.spawn(cmd, timeout=600, encoding='utf-8')
-            self._adchild.logfile = open(logfile_path, "w")
+                try:
+                    self._adchild = pexpect.spawn(cmd, timeout=600, encoding='utf-8')
+                    self._adchild.logfile = open(logfile_path, "w")
 
-            # Wait for the "Press Q to stop" prompt
-            self._adchild.expect("Press Q to stop", timeout=600)
-            self._plugin_logger.info("ADXL345 ready and capturing.")
-        except pexpect.TIMEOUT:
-            self._plugin_logger.error("Timed out waiting for ADXL345 to start.")
-            raise
-        except pexpect.EOF:
-            self._plugin_logger.error("ADXL345 process exited early. Check logs.")
-            raise
-        except Exception as e:
-            self._plugin_logger.error(f"Unexpected error: {e}")
-            raise
-
+                    # Wait for the "Press Q to stop" prompt
+                    self._adchild.expect("Press Q to stop", timeout=600)
+                    self._plugin_logger.info("ADXL345 ready and capturing.")
+                except pexpect.TIMEOUT:
+                    self._plugin_logger.error("Timed out waiting for ADXL345 to start.")
+                    raise
+                except pexpect.EOF:
+                    self._plugin_logger.error("ADXL345 process exited early. Check logs.")
+                    raise
+                except Exception as e:
+                    self._plugin_logger.error(f"Unexpected error: {e}")
+                    raise
+            except Exception as e:
+                self._logger.error("Failed to start ADXL capture: %s" % e)
+                if self._adxl_capture_logfile:
+                    self._adxl_capture_logfile.close()
+                    self._adxl_capture_logfile = None
+                self._adxl_capture_running = False
+                # Handle any cleanup if necessary
 
     def _stop_adxl_capture(self):
-        self._plugin_logger.info("Stopping ADXL345 capture...")
-        if self._adchild and self._adchild.isalive():
+        with self._adxl_capture_lock:
+            if not self._adxl_capture_running:
+                self._logger.info("ADXL capture not running, skipping stop.")
+                return
             try:
-                self._adchild.sendline("Q")
-                self._adchild.expect("Saved .* samples", timeout=30)
-                self._plugin_logger.info("ADXL345 confirmed data saved.")
-            except pexpect.TIMEOUT:
-                self._plugin_logger.warning("No save confirmation. Terminating...")
-                self._adchild.terminate(force=True)
-            except pexpect.EOF:
-                self._plugin_logger.info("Process already exited.")
+                self._plugin_logger.info("Stopping ADXL345 capture...")
+                if self._adchild and self._adchild.isalive():
+                    try:
+                        self._adchild.sendline("Q")
+                        self._adchild.expect("Saved .* samples", timeout=30)
+                        self._plugin_logger.info("ADXL345 confirmed data saved.")
+                    except pexpect.TIMEOUT:
+                        self._plugin_logger.warning("No save confirmation. Terminating...")
+                        self._adchild.terminate(force=True)
+                    except pexpect.EOF:
+                        self._plugin_logger.info("Process already exited.")
+                    finally:
+                        if self._adchild.logfile:
+                            self._adchild.logfile.close()
+                else:
+                    self._plugin_logger.warning("Process not alive.")
             finally:
-                if self._adchild.logfile:
-                    self._adchild.logfile.close()
-        else:
-            self._plugin_logger.warning("Process not alive.")
-
+                if self._adxl_capture_logfile:
+                    self._adxl_capture_logfile.close()
+                    self._adxl_capture_logfile = None
+                self._adxl_capture_running = False
 
 
 
