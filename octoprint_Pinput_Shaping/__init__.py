@@ -600,14 +600,14 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                 else:
                     self._plugin_logger.info("Starting ADXL345 capture...")
                     wrapper = "adxl345spi"
-                    freq = self._settings.get_int(['adxlFreq']) or 4000  # Set a default if not set
-                    # Clamp ADXL345 frequency to supported range (e.g., 400 to 8000 Hz)
-                    if freq < 400:
-                        self._plugin_logger.warning(f"ADXL345 frequency {freq}Hz is below minimum. Clamping to 400Hz.")
-                        freq = 400
-                    elif freq > 8000:
-                        self._plugin_logger.warning(f"ADXL345 frequency {freq}Hz is above maximum. Clamping to 8000Hz.")
-                        freq = 8000
+                    freq = self._settings.get_int(['adxlFreq']) or 3200  # Default to 3200, not 4000
+                    # Clamp ADXL345 frequency to supported range (1 to 3200 Hz)
+                    if freq < 1:
+                        self._plugin_logger.warning(f"ADXL345 frequency {freq}Hz is below minimum. Clamping to 1Hz.")
+                        freq = 1
+                    elif freq > 3200:
+                        self._plugin_logger.warning(f"ADXL345 frequency {freq}Hz is above maximum. Clamping to 3200Hz.")
+                        freq = 3200
 
                 cmd = f"sudo {wrapper} -f {freq} -s {self.csv_filename}"
                 logfile_path = os.path.join(os.path.dirname(self.csv_filename), "adxl_output.log")
