@@ -651,7 +651,10 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                     self._adxl_capture_logfile = None
                 self._adxl_capture_running = False
 
-
+    def _get_logfile_path(self, axis):
+        # Example: Save log file in metadata_dir with axis and timestamp
+        dt = time.strftime("%Y%m%dT%H%M%S")
+        return os.path.join(self.metadata_dir, f"adxl_capture_{axis}_{dt}.log")
 
 
     def get_update_information(self):
