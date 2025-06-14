@@ -582,23 +582,35 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                 logfile = open(logfile_path, "w")
                 self._adxl_capture_logfile = logfile  # Save for later closure
 
-                if  (self._settings.get(['sensorType']) == 'lis2dw'):
+                sensor_type = self._settings.get(['sensorType'])
+                if sensor_type == 'lis2dw':
                     self._plugin_logger.info("Starting LIS2DW capture...")
                     wrapper = "lis2dwusb"
+                    freq = self._settings.get_int(['lis2dwFreq']) or 1600  # Set a default if not set
                     if freq == 5:
                         self._plugin_logger.warning("LIS2DW sensor does not support 5Hz frequency. Test will run at minimum 200Hz.")
                         freq = 200
-                    else:
-                        self._plugin_logger.info(f"LIS2DW sensor does not support frequency {freq}Hz. Test will run at max 1600Hz.")
+                    elif freq < 200:
+                        self._plugin_logger.warning(f"LIS2DW frequency {freq}Hz is below minimum. Clamping to 200Hz.")
+                        freq = 200
+                    elif freq > 1600:
                         freq = 1600
+                    self._plugin_logger.info("Starting LIS2DW capture...")
+                    self._plugin_logger.info("Starting ADXL345 capture...")
                 else:
                     self._plugin_logger.info("Starting ADXL345 capture...")
                     wrapper = "adxl345spi"
-
+                    freq = self._settings.get_int(['adxlFreq']) or 4000  # Set a default if not set
+                    # Clamp ADXL345 frequency to supported range (e.g., 400 to 8000 Hz)
+                    if freq < 400:
+                        self._plugin_logger.warning(f"ADXL345 frequency {freq}Hz is below minimum. Clamping to 400Hz.")
+                        freq = 400
+                    elif freq > 8000:
+                        self._plugin_logger.warning(f"ADXL345 frequency {freq}Hz is above maximum. Clamping to 8000Hz.")
+                        freq = 8000
 
                 cmd = f"sudo {wrapper} -f {freq} -s {self.csv_filename}"
                 logfile_path = os.path.join(os.path.dirname(self.csv_filename), "adxl_output.log")
-
                 try:
                     self._adchild = pexpect.spawn(cmd, timeout=600, encoding='utf-8')
                     self._adchild.logfile = open(logfile_path, "w")
