@@ -543,13 +543,8 @@ $(function () {
       }
     };
 
-    self.signalPlotURL = ko.observable("");
-    self.psdPlotURL = ko.observable("");
-    self.csvPath = ko.observable("");
-    self.m593Command = ko.observable("");
     self.baseFreq = ko.observable(null);
     self.bestShaperAxis = ko.observable("");
-    self.dampingRatio = ko.observable("");
 
     self.downloadSignalPlot = function () {
       const link = document.createElement("a");
