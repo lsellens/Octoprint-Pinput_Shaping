@@ -169,22 +169,21 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             return flask.jsonify(result)
 
         elif command == "run_axis_test":
-            axis = data["data"]["axis"]
+            axis = data["axis"]
             self._plugin_logger.info(f"Triggering axis {axis} test")
             self._plugin_manager.send_plugin_message(self._identifier, {"type":"popup", "message":f"Running Test for {axis} Axis..."})
             result = self._run_axis_test(axis)
             return flask.jsonify(result)
         elif command == "run_resonance_test":
-            axis = data["data"]["axis"]
-            x = data["data"]["start_x"]
-            y = data["data"]["start_y"]
-            z = data["data"]["start_z"]
+            axis = data["axis"]
+            x = data["start_x"]
+            y = data["start_y"]
+            z = data["start_z"]
             self._plugin_logger.info(
                 f"Triggering resonance test for axis {axis}")
             self._plugin_manager.send_plugin_message(self._identifier, {"type":"popup", "message":f"Running Resonance Test for {axis} Axis..."})
             result = self._run_resonance_test(axis, x, y, z)
             return flask.jsonify(result)
-
         else:
             self._plugin_logger.warning(f"Unknown API command: {command}")
             return flask.jsonify({"success": False, "error": "Unknown command"})

@@ -141,7 +141,7 @@ $(function () {
       self.summary("Executing Test for " + axis + "...");
       self.hasData(false);
 
-      OctoPrint.simpleApiCommand("Pinput_Shaping", "run_axis_test", { data: { axis: axis } })
+      OctoPrint.simpleApiCommand("Pinput_Shaping", "run_axis_test", { axis: axis })
         .done(function (response) {
           if (response.success) {
             self.summary(response.summary);
@@ -170,7 +170,7 @@ $(function () {
 
       console.log("🔁 Sending resonance test with payload:", payload);
 
-      OctoPrint.simpleApiCommand("Pinput_Shaping", "run_resonance_test", { data: payload })
+      OctoPrint.simpleApiCommand("Pinput_Shaping", "run_resonance_test", payload)
         .done(function (response) {
           if (response.success) {
             self.summary(response.summary);
@@ -251,7 +251,7 @@ $(function () {
                               <h5 class="modal-title">
                                   <i class="fas fa-info-circle"></i> Processing Request
                               </h5>
-                              <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: white; opacity: 0.8;">
+                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close" style="color: white; opacity: 0.8;">
                                   <span aria-hidden="true">&times;</span>
                               </button>
                           </div>
@@ -329,7 +329,7 @@ $(function () {
                               <h5 class="modal-title">
                                   <i class="fas fa-exclamation-triangle"></i> Error Occurred
                               </h5>
-                              <button type="button" class="close" data-dismiss="modal" aria-label="Close" style="color: white; opacity: 0.8;">
+                              <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close" style="color: white; opacity: 0.8;">
                                   <span aria-hidden="true">&times;</span>
                               </button>
                           </div>
