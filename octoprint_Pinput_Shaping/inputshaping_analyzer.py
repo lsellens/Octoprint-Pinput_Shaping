@@ -9,9 +9,11 @@ import sys
 
 MAX_BYTES_32 = 2_000_000_000           # ~ 2 gi b
 
+
 class InputShapingAnalyzer:
+
     def __init__(self, save_dir, csv_path, damping=0.5, cutoff_freq=100, axis=None, logger = None):
-        
+
         self._plugin_logger = logger or logging.getLogger("octoprint.plugins.Pinput_Shaping")
         self.csv_path = csv_path
         self.damping = damping
@@ -21,12 +23,12 @@ class InputShapingAnalyzer:
         self.best_shaper = None
         self.base_freq = None
         self.shaper_results = {}
-    
+
 
     def load_data(self):
         self._plugin_logger.info(f"Loading data from CSV file {self.csv_path} for axis {self.axis}")
         df = pd.read_csv(self.csv_path)
-        df.columns = [c.strip().lower() for c in df.columns]     
+        df.columns = [c.strip().lower() for c in df.columns]
 
         # Time
         df["time"] = pd.to_numeric(df["time"], errors="coerce")
@@ -51,6 +53,7 @@ class InputShapingAnalyzer:
         norm_cutoff = self.cutoff_freq / nyq
         b, a = butter(order, norm_cutoff, btype='low')
         return filtfilt(b, a, data)
+
 
     def generate_shapers(self, freq):
         t = 1 / freq
@@ -99,6 +102,8 @@ class InputShapingAnalyzer:
         ]
 
         return shapers
+
+
     def apply_shaper(self, signal, time, shaper):
         dt = np.mean(np.diff(time))
         n = len(signal)
@@ -108,6 +113,7 @@ class InputShapingAnalyzer:
             if shift < n:
                 shaped[shift:] += amp * signal[:n - shift]
         return shaped
+
 
     def compute_psd(self, signal: np.ndarray):
         # Adaptive Welch that guarantees not exceeding the limit of 2 gib.
@@ -130,7 +136,8 @@ class InputShapingAnalyzer:
             f"est_mem={est_mem/1e6:.1f} MB, len={len(sig)}")
 
         return welch(sig, fs=self.sampling_rate, nperseg=nperseg)
-    
+
+
     def analyze(self):
         self.load_data()
         self.filtered = self.lowpass_filter(self.raw)
@@ -154,10 +161,11 @@ class InputShapingAnalyzer:
         self.best_shaper = min(self.shaper_results, key=lambda s: self.shaper_results[s]["vibr"])
         return self.best_shaper
 
+
     def generate_graphs(self):
-        # get the date from csv file which format is Raw_accel_values_AXIS_X_20250416T133919.csv 
+        # get the date from csv file which format is Raw_accel_values_AXIS_X_20250416T133919.csv
         date = os.path.basename(self.csv_path).split("_")[-1].split(".")[0]
-        
+
         # Signal Graph
         signal_path = os.path.join(self.result_dir, f"{self.axis}_signal_{date}.png")
         plt.figure(figsize=(14, 5))
@@ -210,10 +218,11 @@ class InputShapingAnalyzer:
 
         return signal_path, psd_path, self.shaper_results, self.best_shaper, self.base_freq
 
+
     def get_recommendation(self):
         return f"M593 F{self.base_freq:.1f} D{self.damping} S{self.best_shaper}"
-    
-    
+
+
     # def get_plotly_data(self):
     #     data = {
     #         "time": self.time[::5].tolist(),  # reduces size if necessary
@@ -234,7 +243,8 @@ class InputShapingAnalyzer:
     #         }
 
     #     return data
-    
+
+
     def get_plotly_data(self):
         return {
             "time": [float(t) for t in self.time[::5]],
