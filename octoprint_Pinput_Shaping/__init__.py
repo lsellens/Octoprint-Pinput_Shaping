@@ -272,13 +272,12 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                 self._plugin_logger.warning("Output log not found")
 
             self._plugin_logger.info(
-                f"Detected M117: Accelerometer test completed. Summary: {summary_line}"
+                f"Accelerometer test completed. Summary: {summary_line}"
             )
             self._plugin_manager.send_plugin_message(
                 self._identifier, dict(type="close_popup")
             )
             self.restore_shapers()
-            self._plugin_logger.info("Restored shaper values to printer.")
             return {
                 "success": True,
                 "summary": summary_line,
@@ -374,11 +373,11 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         freqs = self.FREQ_START + (self.FREQ_END - self.FREQ_START) * t / self.DURATION
         positions = self.START_POS + self.AMPLITUDE * np.sin(2 * np.pi * freqs * t)
         commands = []
-        commands.append(f"M117 Testing Sweep on {axis}-Axis")
+        commands.append(f"M118 Testing Sweep on {axis}-Axis")
         for pos in positions:
             commands.append(f"G0 {axis}{pos} F{60 * self.ACCELERATION}")
 
-        commands.append(f"M117 Finish Test Sweep on {axis}-Axis")
+        commands.append(f"M118 Finish Test Sweep on {axis}-Axis")
 
         return commands
 
@@ -403,10 +402,10 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         feedrates = np.clip(100 * accelerations, 2000, 15000)
 
         commands = []
-        commands.append("M117 Starting resonance test")
-        commands.append("M117 Accelerometer|ON")
+        commands.append("M118 Starting resonance test")
+        commands.append("M118 Accelerometer|ON")
         commands.append("M593 F0")
-        commands.append(f"M117 Resonance Test on {axis}-Axis")
+        commands.append(f"M118 Resonance Test on {axis}-Axis")
 
         current_accel = int(accelerations[0])
         commands.append(f"M204 S{current_accel}")
@@ -433,7 +432,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                 elif axis == "Y":
                     commands.append(f"G0 X{x:.3f} Y{y + offset:.3f} F{feed}")
 
-        commands.append("M117 Resonance Test complete")
+        commands.append("M118 Resonance Test complete")
         commands.append("M204 P1500 R500 T1500")  # restoring original accel
         commands.append("M400")  # Wait for all moves to complete
 
@@ -465,7 +464,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         """Handle received G-code lines and process Input Shaping commands."""
 
         if "Input Shaping:" in line:
-            self._plugin_logger.info("Detected M117: Input Shaping message")
+            self._plugin_logger.info("Detected: Input Shaping message")
             self.getM593 = True
             self.shapers = {}
 
@@ -495,7 +494,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             self.getM593 = False
 
         elif "Resonance Test complete" in line:
-            self._plugin_logger.info("Detected M117: Resonance Test complete message")
+            self._plugin_logger.info("Detected M118: Resonance Test complete message")
             self._plugin_logger.info(
                 f"Resonance Test complete for {self.currentAxis} axis"
             )
@@ -512,14 +511,14 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
 
         elif "Finish Test Sweep" in line:
             self._plugin_logger.info(
-                f"Detected M117: Finished Test Sweep for {self.currentAxis} axis"
+                f"Detected M118: Finished Test Sweep for {self.currentAxis} axis"
             )
             self._plugin_manager.send_plugin_message(
                 self._identifier, dict(type="close_popup")
             )
 
         elif "Accelerometer|ON" in line:
-            self._plugin_logger.info("Detected M117: Start accelerometer capture")
+            self._plugin_logger.info("Detected M118: Start accelerometer capture")
             self._plugin_logger.info("Accelerometer capture started...")
             self.accelerometer_capture_active = True
             threading.Thread(target=self._start_accelerometer_capture(3200)).start()
@@ -543,6 +542,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                 cmd = f"M593 {axis} F{freq:.2f} D{damp} "
                 self._printer.commands(cmd)
                 self._plugin_logger.info(f"Restored: {cmd}")
+        self._plugin_logger.info("Restored shaper values to printer.")
 
     def get_input_shaping_results(self) -> dict:
         """Get the Input Shaping results after accelerometer capture."""
@@ -615,16 +615,15 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         # self._plugin_logger.info(f"Sending plotly data to frontend: {json.dumps(data_for_plotly)}")
         self._plugin_manager.send_plugin_message(self._identifier, data_for_plotly)
         self.restore_shapers()
-        self._plugin_logger.info("Restored shaper values to printer.")
         return {"success": True}
 
     def _start_accelerometer_capture(self, freq=3200) -> None:
         """Start the accelerometer capture process using pexpect."""
 
         wrapper = None
+        sensor_type = self._settings.get(['sensorType'])
 
-        if self._settings.get(['sensorType']) == 'lis2dw':
-            self._plugin_logger.info("Starting LIS2DW capture...")
+        if sensor_type == "lis2dw":
             wrapper = "lis2dwusb"
             if freq == 5:
                 self._plugin_logger.warning(
@@ -636,10 +635,18 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                     f"LIS2DW sensor does not support frequency {freq}Hz. Test will run at max 1600Hz."
                 )
                 freq = 1600
-        else:
-            self._plugin_logger.info("Starting ADXL345 capture...")
+
+        elif sensor_type == "adxlusb":
+            wrapper = "adxl345usb"
+
+        elif sensor_type == "adxlspi":
             wrapper = "adxl345spi"
 
+        else:
+            self._plugin_logger.error(f"Unsupported sensor type: {sensor_type}")
+            raise ValueError(f"Unsupported sensor type: {sensor_type}")
+
+        self._plugin_logger.info(f"Starting {sensor_type} capture...")
         cmd = f"sudo {wrapper} -f {freq} -s {self.csv_filename}"
         logfile_path = os.path.join(os.path.dirname(self.csv_filename), "accelerometer_output.log")
 
@@ -648,7 +655,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             self._adchild.logfile = open(logfile_path, "w", encoding="utf-8")
 
             # Wait for the "Press Q to stop" prompt
-            self._adchild.expect("Press Q to stop", timeout=600)
+            self._adchild.expect("Press Q to stop", timeout=30)
             self._plugin_logger.info("Accelerometer ready and capturing.")
         except pexpect.TIMEOUT:
             self._plugin_logger.error("Timed out waiting for accelerometer to start.")
