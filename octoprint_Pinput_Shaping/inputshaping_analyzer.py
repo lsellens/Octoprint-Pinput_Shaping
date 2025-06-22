@@ -87,11 +87,11 @@ class InputShapingAnalyzer:
         cutoff = min(self.cutoff_freq, nyq * 0.99)
         norm_cutoff = cutoff / nyq
         self._plugin_logger.info(
-            f"lowpass_filter: cutoff={cutoff}, nyq={nyq}, norm_cutoff={norm_cutoff}, sampling_rate={self.sampling_rate}"
+            "lowpass_filter: cutoff=%s, nyq=%s, norm_cutoff=%s, sampling_rate=%s", cutoff, nyq, norm_cutoff, self.sampling_rate
         )
-        if not (0 < norm_cutoff < 1):
+        if not 0 < norm_cutoff < 1:
             self._plugin_logger.error(
-                f"Invalid norm_cutoff: {norm_cutoff} (cutoff={cutoff}, nyq={nyq})"
+                "Invalid norm_cutoff: %s (cutoff=%s, nyq=%s)", norm_cutoff, cutoff, nyq
             )
             raise ValueError(
                 f"Digital filter critical frequencies must be 0 < Wn < 1 (got {norm_cutoff}, cutoff={cutoff}, nyq={nyq})"

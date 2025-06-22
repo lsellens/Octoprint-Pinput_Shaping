@@ -129,17 +129,17 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
 
         self.configure_logger()
         self._plugin_logger.info(">>>>>> PInput-Shaping Loaded <<<<<<")
-        self._plugin_logger.info(f"Plugin identifier is: {self._identifier}")
-        self._plugin_logger.info(f"Plugin version is: {self._plugin_version}")
-        self._plugin_logger.info(f"X size: {self._settings.get(['sizeX'])}")
-        self._plugin_logger.info(f"Y size: {self._settings.get(['sizeY'])}")
-        self._plugin_logger.info(f"Z size: {self._settings.get(['sizeZ'])}")
-        self._plugin_logger.info(f"Acceleration min: {self._settings.get(['accelMin'])}")
-        self._plugin_logger.info(f"Acceleration max: {self._settings.get(['accelMax'])}")
-        self._plugin_logger.info(f"Frequency start: {self._settings.get(['freqStart'])}")
-        self._plugin_logger.info(f"Frequency end: {self._settings.get(['freqEnd'])}")
-        self._plugin_logger.info(f"Damping ratio: {self._settings.get(['dampingRatio'])}")
-        self._plugin_logger.info(f"Sensor type: {self._settings.get(['sensorType'])}")
+        self._plugin_logger.info("Plugin identifier is: %s", self._identifier)
+        self._plugin_logger.info("Plugin version is: %s", self._plugin_version)
+        self._plugin_logger.info("X size: %s", self._settings.get(['sizeX']))
+        self._plugin_logger.info("Y size: %s", self._settings.get(['sizeY']))
+        self._plugin_logger.info("Z size: %s", self._settings.get(['sizeZ']))
+        self._plugin_logger.info("Acceleration min: %s", self._settings.get(['accelMin']))
+        self._plugin_logger.info("Acceleration max: %s", self._settings.get(['accelMax']))
+        self._plugin_logger.info("Frequency start: %s", self._settings.get(['freqStart']))
+        self._plugin_logger.info("Frequency end: %s", self._settings.get(['freqEnd']))
+        self._plugin_logger.info("Damping ratio: %s", self._settings.get(['dampingRatio']))
+        self._plugin_logger.info("Sensor type: %s", self._settings.get(['sensorType']))
 
         self._plugin_manager.send_plugin_message(
             self._identifier, {"msg": "Pinput Shaping Plugin loaded"}
@@ -161,9 +161,9 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         os.chmod(self.graphs_dir, 0o775)
 
         self._plugin_logger.info(
-            f">>>>>> PInput-Shaping Metadata directory initialized: {self.metadata_dir}")
+            ">>>>>> PInput-Shaping Metadata directory initialized: %s", self.metadata_dir)
         self._plugin_logger.info(
-            f">>>>>> PInput-Shaping Graphs directory initialized: {self.graphs_dir}")
+            ">>>>>> PInput-Shaping Graphs directory initialized: %s", self.graphs_dir)
 
     def get_api_commands(self) -> dict:
         """Return the API commands for the plugin."""
@@ -176,7 +176,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         """Handle API commands sent to the plugin."""
 
         self._plugin_logger.info(
-            f">>>>>> PInput-Shaping API Command: {command} with data: {data}")
+            ">>>>>> PInput-Shaping API Command: %s with data: %s", command, data)
         if command == "run_accelerometer_test":
             self._plugin_manager.send_plugin_message(
                 self._identifier,
@@ -187,7 +187,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
 
         if command == "run_axis_test":
             axis = data["data"]["axis"]
-            self._plugin_logger.info(f"Triggering axis {axis} test")
+            self._plugin_logger.info("Triggering axis %s test", axis)
             self._plugin_manager.send_plugin_message(
                 self._identifier,
                 {"type": "popup", "message": f"Running Test for {axis} Axis..."},
@@ -199,7 +199,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             x = data["data"]["start_x"]
             y = data["data"]["start_y"]
             z = data["data"]["start_z"]
-            self._plugin_logger.info(f"Triggering resonance test for axis {axis}")
+            self._plugin_logger.info("Triggering resonance test for axis %s", axis)
             self._plugin_manager.send_plugin_message(
                 self._identifier,
                 {
@@ -210,22 +210,22 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             result = self._run_resonance_test(axis, x, y, z)
             return flask.jsonify(result)
 
-        self._plugin_logger.warning(f"Unknown API command: {command}")
+        self._plugin_logger.warning("Unknown API command: %s", command)
         return flask.jsonify({"success": False, "error": "Unknown command"})
 
     def _run_accelerometer_test(self) -> dict:
         """Run the accelerometer test and return the results."""
 
         self._plugin_logger.info(">>>>>>> Running accelerometer test with settings:")
-        self._plugin_logger.info(f"X size: {self._settings.get(['sizeX'])}")
-        self._plugin_logger.info(f"Y size: {self._settings.get(['sizeY'])}")
-        self._plugin_logger.info(f"Z size: {self._settings.get(['sizeZ'])}")
-        self._plugin_logger.info(f"Acceleration min: {self._settings.get(['accelMin'])}")
-        self._plugin_logger.info(f"Acceleration max: {self._settings.get(['accelMax'])}")
-        self._plugin_logger.info(f"Frequency start: {self._settings.get(['freqStart'])}")
-        self._plugin_logger.info(f"Frequency end: {self._settings.get(['freqEnd'])}")
-        self._plugin_logger.info(f"Damping ratio: {self._settings.get(['dampingRatio'])}")
-        self._plugin_logger.info(f"Sensor type: {self._settings.get(['sensorType'])}")
+        self._plugin_logger.info("X size: %s", self._settings.get(['sizeX']))
+        self._plugin_logger.info("Y size: %s", self._settings.get(['sizeY']))
+        self._plugin_logger.info("Z size: %s", self._settings.get(['sizeZ']))
+        self._plugin_logger.info("Acceleration min: %s", self._settings.get(['accelMin']))
+        self._plugin_logger.info("Acceleration max: %s", self._settings.get(['accelMax']))
+        self._plugin_logger.info("Frequency start: %s", self._settings.get(['freqStart']))
+        self._plugin_logger.info("Frequency end: %s", self._settings.get(['freqEnd']))
+        self._plugin_logger.info("Damping ratio: %s", self._settings.get(['dampingRatio']))
+        self._plugin_logger.info("Sensor type: %s", self._settings.get(['sensorType']))
 
         try:
             self._plugin_logger.info("Backing up current shaper values...")
@@ -272,7 +272,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                 self._plugin_logger.warning("Output log not found")
 
             self._plugin_logger.info(
-                f"Accelerometer test completed. Summary: {summary_line}"
+                "Accelerometer test completed. Summary: %s", summary_line
             )
             self._plugin_manager.send_plugin_message(
                 self._identifier, dict(type="close_popup")
@@ -288,7 +288,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             }
 
         except Exception as e:
-            self._plugin_logger.error(f"Accelerometer test failed: {e}")
+            self._plugin_logger.error("Accelerometer test failed: %s", e)
             self._plugin_manager.send_plugin_message(
                 self._identifier, {"type": "error_popup", "message": str(e)}
             )
@@ -297,7 +297,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
     def _run_axis_test(self, axis) -> dict:
         """Run the axis test for the specified axis."""
 
-        self._plugin_logger.info(f">>>>>> Running Sweeping {axis} test")
+        self._plugin_logger.info(">>>>>> Running Sweeping %s test", axis)
         # create variable with the value of datetime in iso format
         dt = time.strftime("%Y%m%dT%H%M%S")
         self.csv_filename = os.path.join(
@@ -332,7 +332,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
     def _run_resonance_test(self, axis, x, y, z) -> dict:
         """Run the resonance test for the specified axis at given coordinates."""
 
-        self._plugin_logger.info(f"Running resonance test for {axis} axis at position ({x}, {y}, {z})")
+        self._plugin_logger.info("Running resonance test for %s axis at position (%s, %s, %s)", axis, x, y, z)
          #create variable with the value of datetime in iso format
         dt= time.strftime("%Y%m%dT%H%M%S")
         self.csv_filename = os.path.join(self.metadata_dir, f"Raw_accel_values_AXIS_{axis}_{dt}.csv")
@@ -368,7 +368,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         """Precompute the sweep commands for the specified axis."""
 
         self.currentAxis = axis
-        self._plugin_logger.info(f"Precomputing sweep commands for Axis {axis}...")
+        self._plugin_logger.info("Precomputing sweep commands for Axis %s...", axis)
         t = np.linspace(0, self.DURATION, num=2000)  # 2000 points over 20 seconds
         freqs = self.FREQ_START + (self.FREQ_END - self.FREQ_START) * t / self.DURATION
         positions = self.START_POS + self.AMPLITUDE * np.sin(2 * np.pi * freqs * t)
@@ -490,13 +490,13 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             )
             with open(shaper_bck_path, "w", encoding="utf-8") as f:
                 json.dump(self.shapers, f)
-            self._plugin_logger.info(f"Shaper backup saved: {self.shapers}")
+            self._plugin_logger.info("Shaper backup saved: %s", self.shapers)
             self.getM593 = False
 
         elif "Resonance Test complete" in line:
             self._plugin_logger.info("Detected M118: Resonance Test complete message")
             self._plugin_logger.info(
-                f"Resonance Test complete for {self.currentAxis} axis"
+                "Resonance Test complete for %s axis", self.currentAxis
             )
             self._plugin_logger.info("Stopping accelerometer capture...")
             threading.Thread(target=self._stop_accelerometer_capture).start()
@@ -511,7 +511,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
 
         elif "Finish Test Sweep" in line:
             self._plugin_logger.info(
-                f"Detected M118: Finished Test Sweep for {self.currentAxis} axis"
+                "Detected M118: Finished Test Sweep for %s axis", self.currentAxis
             )
             self._plugin_manager.send_plugin_message(
                 self._identifier, dict(type="close_popup")
@@ -541,14 +541,14 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             if freq is not None and damp is not None:
                 cmd = f"M593 {axis} F{freq:.2f} D{damp} "
                 self._printer.commands(cmd)
-                self._plugin_logger.info(f"Restored: {cmd}")
+                self._plugin_logger.info("Restored: %s", cmd)
         self._plugin_logger.info("Restored shaper values to printer.")
 
     def get_input_shaping_results(self) -> dict:
         """Get the Input Shaping results after accelerometer capture."""
 
         self._plugin_logger.info(
-            f"Getting Input Shaping results for {self.currentAxis} Axis..."
+            "Getting Input Shaping results for %s Axis...", self.currentAxis
         )
 
         if self.accelerometer_capture_active:
@@ -582,10 +582,10 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
         command = analyzer.get_recommendation()
         data_for_plotly = analyzer.get_plotly_data()
 
-        self._plugin_logger.info(f"Best shaper for {self.currentAxis} axis: {best_shaper}")
-        self._plugin_logger.info(f"Signal graph saved to: {signal_path}")
-        self._plugin_logger.info(f"PSD graph saved to: {psd_path}")
-        self._plugin_logger.info(f"Recommended command: {command}")
+        self._plugin_logger.info("Best shaper for %s axis: %s", self.currentAxis, best_shaper)
+        self._plugin_logger.info("Signal graph saved to: %s", signal_path)
+        self._plugin_logger.info("PSD graph saved to: %s", psd_path)
+        self._plugin_logger.info("Recommended command: %s", command)
         self._plugin_logger.info("Input Shaping analysis completed.")
         self._plugin_manager.send_plugin_message(self._identifier, dict(type="close_popup"))
         self._printer.commands(f"M117 Freq for {self.currentAxis}:{base_freq:.2f} Damp:{self._settings.get(['dampingRatio'])}")
@@ -632,7 +632,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
                 freq = 200
             else:
                 self._plugin_logger.info(
-                    f"LIS2DW sensor does not support frequency {freq}Hz. Test will run at max 1600Hz."
+                    "LIS2DW sensor does not support frequency %sHz. Test will run at max 1600Hz.", freq
                 )
                 freq = 1600
 
@@ -643,10 +643,10 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             wrapper = "adxl345spi"
 
         else:
-            self._plugin_logger.error(f"Unsupported sensor type: {sensor_type}")
+            self._plugin_logger.error("Unsupported sensor type: %s", sensor_type)
             raise ValueError(f"Unsupported sensor type: {sensor_type}")
 
-        self._plugin_logger.info(f"Starting {sensor_type} capture...")
+        self._plugin_logger.info("Starting %s capture...", sensor_type)
         cmd = f"sudo {wrapper} -f {freq} -s {self.csv_filename}"
         logfile_path = os.path.join(os.path.dirname(self.csv_filename), "accelerometer_output.log")
 
@@ -664,7 +664,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin,
             self._plugin_logger.error("Accelerometer process exited early. Check logs.")
             raise
         except Exception as e:
-            self._plugin_logger.error(f"Unexpected error: {e}")
+            self._plugin_logger.error("Unexpected error: %s", e)
             raise
 
     def _stop_accelerometer_capture(self) -> None:
