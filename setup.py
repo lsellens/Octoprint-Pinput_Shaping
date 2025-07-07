@@ -33,7 +33,7 @@ plugin_url = "https://github.com/navaismo/OctoPrint-Pinput_Shaping"
 plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
-plugin_requires = ["numpy", "scipy", "matplotlib", "pandas","pexpect"]
+plugin_requires = ["numpy", "scipy", "matplotlib", "pandas", "pexpect"]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point

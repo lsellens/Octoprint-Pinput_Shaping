@@ -136,26 +136,6 @@ $(function () {
       $("#imageModal").modal("show");
     };
 
-    self.runAxisTest = function (axis) {
-      self.error(null);
-      self.summary("Executing Test for " + axis + "...");
-      self.hasData(false);
-
-      OctoPrint.simpleApiCommand("Pinput_Shaping", "run_axis_test", { data: { axis: axis } })
-        .done(function (response) {
-          if (response.success) {
-            self.summary(response.summary);
-          } else {
-            self.summary("");
-            self.error("Error: " + response.error);
-          }
-        })
-        .fail(function (jqXHR, textStatus, errorThrown) {
-          self.summary("");
-          self.error("AJAX error: " + errorThrown);
-        });
-    };
-
     self.runResonance = function (axis) {
       self.error(null);
       self.summary("Executing Resonance Test for " + axis + "...");
