@@ -220,9 +220,6 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
         self._plugin_logger.info("Sensor type: %s", self._settings.get(['sensorType']))
 
         try:
-            self._plugin_logger.info("Backing up current shaper values...")
-            self._printer.commands("M593")
-            time.sleep(2)
             self.csv_filename = os.path.join(self.metadata_dir, "accelerometer_test_capture.csv")
             log_filename = os.path.join(self.metadata_dir, "accelerometer_output.log")
 
@@ -269,7 +266,6 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             self._plugin_manager.send_plugin_message(
                 self._identifier, dict(type="close_popup")
             )
-            self.restore_shapers()
             return {
                 "success": True,
                 "summary": summary_line,
