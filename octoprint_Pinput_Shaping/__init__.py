@@ -1,6 +1,6 @@
 """Pinput Shaping Plugin for OctoPrint
 Perform input shaping tests on 3D printers using a accelerometers
-"""
+""" # pylint: disable=invalid-name
 
 import csv
 import inspect
@@ -320,7 +320,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
         self._plugin_logger.warning(message)
         return {"success": False, "error": message}
 
-    def precompute_sweep(self, axis, x, y) -> list:
+    def precompute_sweep(self, axis, x, y) -> list: # pylint: disable=too-many-locals
         """Precompute the resonance test commands for the specified axis."""
 
         num_cycles = 800
@@ -576,7 +576,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
 
         try:
             self._adchild = pexpect.spawn(cmd, timeout=600, encoding="utf-8")
-            self._adchild.logfile = open(logfile_path, "w", encoding="utf-8")
+            self._adchild.logfile = open(logfile_path, "w", encoding="utf-8") # pylint: disable=consider-using-with
 
             # Wait for the "Press Q to stop" prompt
             self._adchild.expect("Press Q to stop", timeout=600)
