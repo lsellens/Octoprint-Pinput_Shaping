@@ -48,20 +48,16 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
 
     def __init__(self) -> None:
         """Initialize the plugin."""
-
         super().__init__()
-        self.plugin_data_folder = self.get_plugin_data_folder()
-        self.metadata_dir = os.path.join(self.plugin_data_folder, "metadata")
-        self.graphs_dir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "static", "metadata"
-        )
-        self.csv_filename = None
+        self.plugin_data_folder = ""
+        self.metadata_dir = ""
+        self.graphs_dir = ""
+        self.csv_filename = ""
         self.accelerometer_capture_active = False
         self._adchild = None
         self.current_axis = None
         self.shapers = {}
         self.get_m593 = False
-
         self._plugin_logger = logging.getLogger(f"octoprint.plugins.{__plugin_name__}")
 
     def configure_logger(self) -> None:
@@ -136,6 +132,12 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
     def on_after_startup(self) -> None:
         """Called after the plugin has started."""
 
+        # Now plugin context is available, set up folders
+        self.plugin_data_folder = self.get_plugin_data_folder()
+        self.metadata_dir = os.path.join(self.plugin_data_folder, "metadata")
+        self.graphs_dir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "static", "metadata"
+        )
         self.configure_logger()
         self._plugin_logger.info(">>>>>> PInput-Shaping Loaded <<<<<<")
         self._plugin_logger.info("Plugin identifier is: %s", self._identifier)
