@@ -2,3 +2,5 @@ include README.md
 recursive-include octoprint_Pinput_Shaping/templates *
 recursive-include octoprint_Pinput_Shaping/translations *
 recursive-include octoprint_Pinput_Shaping/static *
+recursive-include octoprint_Pinput_Shaping/static/metadata *
+recursive-include octoprint_Pinput_Shaping/bin *

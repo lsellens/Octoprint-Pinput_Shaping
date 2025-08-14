@@ -11,6 +11,7 @@ import re
 import threading
 import time
 from typing import Any, Dict, Optional
+from typing_extensions import Literal
 
 import flask
 import numpy as np
@@ -104,7 +105,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             "freqStart": 5,
             "freqEnd": 132,
             "dampingRatio": "0.05",
-            "sensorType": "adxlspi"
+            "sensorType": "adxl345-spi"
         }
 
     def get_template_configs(self) -> list[dict]:
@@ -166,6 +167,14 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             ">>>>>> PInput-Shaping Metadata directory initialized: %s", self.metadata_dir)
         self._plugin_logger.info(
             ">>>>>> PInput-Shaping Graphs directory initialized: %s", self.graphs_dir)
+
+    def is_template_autoescaped(self) -> Literal[False]:
+        """Return whether the template should be auto-escaped."""
+        return False
+
+    def is_api_protected(self) -> Literal[True]:
+        """Return whether the API is protected."""
+        return True
 
     def get_api_commands(self) -> Optional[dict]: # type: ignore
         """Return the API commands for the plugin."""
@@ -538,46 +547,35 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
     def _start_accelerometer_capture(self, freq=3200) -> None:
         """Start the accelerometer capture process using pexpect."""
 
-        wrapper = None
+        iface = None
         sensor_type = self._settings.get(['sensorType'])
-        plugin_dir = os.path.dirname(os.path.abspath(__file__))
+        bin_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin', 'accelerometer')
 
-        if sensor_type == 'lis2dw-usb':
-            self._plugin_logger.info("Starting LIS2DW USB capture...")
-            wrapper = os.path.join(plugin_dir, "lis2dw-usb")
-            if freq == 5:
-                self._plugin_logger.warning(
-                    "LIS2DW sensor does not support 5Hz frequency. Test will run at minimum 200Hz."
-                )
-                freq = 200
-            else:
-                self._plugin_logger.info(
-                    "LIS2DW sensor does not support frequency %sHz. Test will run at max 1600Hz.",
-                      freq
-                )
-                freq = 1600
-
-        elif sensor_type == 'adxl345-usb':
+        if sensor_type == 'adxl345-usb':
             self._plugin_logger.info("Starting ADXL345 USB capture...")
-            wrapper = os.path.join(plugin_dir, "adxl345-usb")
+            iface = "-i usb"
 
         elif sensor_type == 'adxl345-i2c':
             self._plugin_logger.info("Starting ADXL345 I2C capture...")
-            wrapper = os.path.join(plugin_dir, "adxl345-i2c")
+            iface = "-i i2c"
 
         elif sensor_type == 'adxl345-spi':
             self._plugin_logger.info("Starting ADXL345 SPI capture...")
-            wrapper = os.path.join(plugin_dir, "adxl345-spi")
+            iface = "-i spi"
 
-        cmd = f"sudo {wrapper} -f {freq} -s {self.csv_filename}"
+        else:
+            self._plugin_logger.error("Unsupported sensor type: %s", sensor_type)
+            raise ValueError(f"Unsupported sensor type: {sensor_type}")
+
+        cmd = f"{bin_path} {iface} -f {freq} -s {self.csv_filename}"
         logfile_path = os.path.join(os.path.dirname(self.csv_filename), "accelerometer_output.log")
 
         try:
             self._adchild = pexpect.spawn(cmd, timeout=600, encoding="utf-8")
             self._adchild.logfile = open(logfile_path, "w", encoding="utf-8") # pylint: disable=consider-using-with
 
-            # Wait for the "Press Q to stop" prompt
-            self._adchild.expect("Press Q to stop", timeout=600)
+            # Wait for the "Press Ctrl+C to stop" prompt
+            self._adchild.expect(r"Press Ctrl\+C to stop", timeout=600)
             self.accelerometer_capture_active = True
             self._plugin_logger.info("Accelerometer ready and capturing.")
         except pexpect.TIMEOUT:
@@ -596,7 +594,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
         self._plugin_logger.info("Stopping accelerometer capture...")
         if self._adchild and self._adchild.isalive():
             try:
-                self._adchild.sendline("Q")
+                self._adchild.sendcontrol('c')
                 self._adchild.expect("Saved .* samples", timeout=30)
                 self._plugin_logger.info("Accelerometer confirmed data saved.")
             except pexpect.TIMEOUT:
