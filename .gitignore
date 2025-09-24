@@ -7,5 +7,3 @@ dist
 *.egg*
 .DS_Store
 *.zip
-octoprint_Pinput_Shaping/bin/accelerometer
-octoprint_Pinput_Shaping/bin/*.o
