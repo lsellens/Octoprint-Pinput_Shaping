@@ -60,6 +60,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
         self.shapers = {}
         self.get_m593 = False
         self._plugin_logger = logging.getLogger(f"octoprint.plugins.{__plugin_name__}")
+        self.accelerometer_error_event = threading.Event()
 
     def configure_logger(self) -> None:
         """Configure the plugin logger."""
@@ -308,8 +309,22 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             self._printer.commands(f"M118 {__plugin_name__}: Store Shapers")
             self._printer.commands("M593")
             time.sleep(2)
-            self._plugin_logger.info("Sending resonance test commands to printer...")
             self.home_and_park(x, y, z)
+            self._plugin_logger.info("Starting accelerometer capture before sweep...")
+            try:
+                self._start_accelerometer_capture()
+            except (OSError, ValueError, RuntimeError) as e:
+                error_msg = f"Accelerometer error before sweep: {e}"
+                self._plugin_logger.error(error_msg)
+                self._plugin_manager.send_plugin_message(
+                    self._identifier, dict(type="close_popup")
+                )
+                self._plugin_manager.send_plugin_message(
+                    self._identifier,
+                    {"type": "error_popup", "message": error_msg}
+                )
+                return {"success": False, "error": error_msg}
+            self._plugin_logger.info("Sending resonance test commands to printer...")
             self._printer.commands(self.precompute_sweep(axis, x, y))
             return {
                 "success": True,
@@ -346,7 +361,6 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
 
         commands = []
         commands.append("M117 Starting resonance test")
-        commands.append(f"M118 {__plugin_name__}: Accelerometer|ON")
         commands.append("M593 F0")
         commands.append(f"M117 Resonance Test on {axis}-Axis")
 
@@ -377,14 +391,28 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
 
         return commands
 
-    def home_and_park(self, x, y, z) -> None:
-        """Home and park the printer at the specified coordinates."""
+    def home_and_park(self, x, y, z, timeout: int = 120) -> None:
+        """Home and park the printer at the specified coordinates, blocking until complete."""
 
         self._plugin_logger.info("Homing and parking printer...")
         start_pos = f"X{x} Y{y} Z{z}"
         self._printer.commands("G28")
+        self._printer.commands("M400")
         self._printer.commands(f"G0 {start_pos} F1500")
         self._printer.commands("G4 P1000")
+        self._printer.commands("M400")
+
+        # Wait for printer to become OPERATIONAL
+        start_time = time.time()
+        while True:
+            state = self._printer.get_state_id()
+            if state == "OPERATIONAL":
+                self._plugin_logger.info("Printer is OPERATIONAL after homing/parking.")
+                break
+            if time.time() - start_time > timeout:
+                self._plugin_logger.error("Timeout waiting for printer to finish homing/parking.")
+                raise TimeoutError("Timeout waiting for printer to finish homing/parking.")
+            time.sleep(1)
 
     def gcode_received_handler(self, _comm, line, *_args, **_kwargs) -> str:
         """Handle received G-code lines and process Input Shaping commands."""
@@ -424,8 +452,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             self._plugin_logger.info(
                 "Resonance Test complete for %s axis", self.current_axis
             )
-            self._plugin_logger.info("Stopping accelerometer capture...")
-            threading.Thread(target=self._stop_accelerometer_capture).start()
+            self._stop_accelerometer_capture()
             self._plugin_logger.info("Starting Input Shaping analysis...")
             self._plugin_manager.send_plugin_message(
                 self._identifier,
@@ -433,11 +460,6 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             )
             time.sleep(3)
             self.get_input_shaping_results()
-
-        elif f"{__plugin_name__}: Accelerometer|ON" in line:
-            self._plugin_logger.info("Detected M118: Start accelerometer capture")
-            self._plugin_logger.info("Accelerometer capture started...")
-            threading.Thread(target=self._start_accelerometer_capture(3200)).start()
         return line
 
     def restore_shapers(self) -> None:
@@ -471,6 +493,20 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
                 {"type": "error_popup", "message": "Current axis not set for analysis."}
             )
             return {"success": False, "error": "Current axis not set"}
+
+        # Check for accelerometer error
+        if self.accelerometer_error_event.is_set():
+            error_msg = "Accelerometer error detected during resonance test."
+            self._plugin_logger.error(error_msg)
+            self._plugin_manager.send_plugin_message(
+                self._identifier, dict(type="close_popup")
+            )
+            self._plugin_manager.send_plugin_message(
+                self._identifier,
+                {"type": "error_popup", "message": error_msg}
+            )
+            self.accelerometer_error_event.clear()
+            return {"success": False, "error": error_msg}
 
         self._plugin_logger.info(
             "Getting Input Shaping results for %s Axis...", self.current_axis
@@ -574,18 +610,30 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             self._adchild = pexpect.spawn(cmd, timeout=600, encoding="utf-8")
             self._adchild.logfile = open(logfile_path, "w", encoding="utf-8") # pylint: disable=consider-using-with
 
-            # Wait for the "Press Ctrl+C to stop" prompt
-            self._adchild.expect(r"Press Ctrl\+C to stop", timeout=600)
+            # Wait for the "Press Ctrl+C to stop" prompt or an error line
+            patterns = [r"Press Ctrl\+C to stop", r"Error:.*"]
+            pattern_index = self._adchild.expect(patterns, timeout=600)
+            if pattern_index == 1:
+                # "Error:" line matched, get full error message
+                error_msg = self._adchild.after.strip()
+                self._plugin_logger.error("Accelerometer error: %s", error_msg)
+                self._plugin_manager.send_plugin_message(self._identifier, dict(type="close_popup"))
+                self.accelerometer_error_event.set()
+                raise RuntimeError(f"Accelerometer error: {error_msg}")
+            # If pattern_index == 0, normal prompt matched, continue as usual
             self.accelerometer_capture_active = True
             self._plugin_logger.info("Accelerometer ready and capturing.")
         except pexpect.TIMEOUT:
             self._plugin_logger.error("Timed out waiting for accelerometer to start.")
+            self.accelerometer_error_event.set()
             raise
         except pexpect.EOF:
             self._plugin_logger.error("Accelerometer process exited early. Check logs.")
+            self.accelerometer_error_event.set()
             raise
-        except Exception as e:
-            self._plugin_logger.error("Unexpected error: %s", e)
+        except (OSError, ValueError, RuntimeError) as e:
+            self._plugin_logger.error("Accelerometer error: %s", e)
+            self.accelerometer_error_event.set()
             raise
 
     def _stop_accelerometer_capture(self) -> None:
