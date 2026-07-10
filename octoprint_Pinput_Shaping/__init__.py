@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import re
-import threading
 import time
 from typing import Any, Dict, Optional
 from typing_extensions import Literal
@@ -389,7 +388,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
     def gcode_received_handler(self, _comm, line, *_args, **_kwargs) -> str:
         """Handle received G-code lines and process Input Shaping commands."""
 
-        if f"{__plugin_name__}:Store Shapers" in line:
+        if f"{__plugin_name__}: Store Shapers" in line:
             self._plugin_logger.info("Detected M118: Store Shapers message")
             self.get_m593 = True
             self.shapers = {}
@@ -424,8 +423,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             self._plugin_logger.info(
                 "Resonance Test complete for %s axis", self.current_axis
             )
-            self._plugin_logger.info("Stopping accelerometer capture...")
-            threading.Thread(target=self._stop_accelerometer_capture).start()
+            self._stop_accelerometer_capture()
             self._plugin_logger.info("Starting Input Shaping analysis...")
             self._plugin_manager.send_plugin_message(
                 self._identifier,
@@ -437,7 +435,7 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
         elif f"{__plugin_name__}: Accelerometer|ON" in line:
             self._plugin_logger.info("Detected M118: Start accelerometer capture")
             self._plugin_logger.info("Accelerometer capture started...")
-            threading.Thread(target=self._start_accelerometer_capture(3200)).start()
+            self._start_accelerometer_capture(3200)
         return line
 
     def restore_shapers(self) -> None:
@@ -574,8 +572,14 @@ class PinputShapingPlugin(octoprint.plugin.StartupPlugin, # pylint: disable=too-
             self._adchild = pexpect.spawn(cmd, timeout=600, encoding="utf-8")
             self._adchild.logfile = open(logfile_path, "w", encoding="utf-8") # pylint: disable=consider-using-with
 
-            # Wait for the "Press Ctrl+C to stop" prompt
-            self._adchild.expect(r"Press Ctrl\+C to stop", timeout=600)
+            # Wait for the "Press Ctrl+C to stop" prompt or an error line
+            patterns = [r"Press Ctrl\+C to stop", r"Error:.*"]
+            pattern_index = self._adchild.expect(patterns, timeout=60)
+            if pattern_index == 1:
+                error_msg = self._adchild.after.strip()
+                self._plugin_logger.error("Accelerometer error: %s", error_msg)
+                self._plugin_manager.send_plugin_message(self._identifier, dict(type="close_popup"))
+                raise RuntimeError(f"Accelerometer error: {error_msg}")
             self.accelerometer_capture_active = True
             self._plugin_logger.info("Accelerometer ready and capturing.")
         except pexpect.TIMEOUT:
